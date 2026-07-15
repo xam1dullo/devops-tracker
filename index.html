@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>DevOps Mission Control — o'quv tracker</title>
+<style>
+/* ============ DESIGN TOKENS ============ */
+:root{
+  --bg:#0B101E; --surface:#131A2B; --surface-2:#1A2338; --surface-3:#212C46;
+  --line:#26304A; --line-soft:#1D2740;
+  --text:#E9EEF8; --muted:#93A0B8; --faint:#7383A1;
+  --amber:#FFB224; --amber-dim:#8a5f12;
+  --cyan:#53C7EC; --green:#3DD68C; --red:#F56358; --violet:#9D8CFF;
+  --blue:#4C9AFF; --orange:#FF8A5C; --pink:#F563A8; --teal:#7FD4C1;
+  --on-accent:#0B101E;
+  --mono:ui-monospace,'JetBrains Mono','Cascadia Code','SF Mono',Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Inter',sans-serif;
+  --fs-xs:12px; --fs-sm:13px; --fs-base:15px; --fs-md:16px; --fs-lg:20px; --fs-xl:28px; --fs-2xl:38px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px;
+  --r-sm:8px; --r-md:12px; --r-full:999px;
+  --shadow:0 8px 28px rgba(0,0,0,.35);
+  --dur:200ms; --ease:cubic-bezier(.2,.7,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-base);line-height:1.55;min-height:100dvh;
+}
+::selection{background:var(--amber);color:var(--on-accent)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text)}
+h1,h2,h3{line-height:1.25;font-weight:650}
+.mono{font-family:var(--mono)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+a{color:var(--cyan)}
+
+/* ============ LOGIN ============ */
+.login-wrap{min-height:100dvh;display:grid;place-items:center;padding:var(--sp-4);
+  background:radial-gradient(1200px 600px at 70% -10%,rgba(83,199,236,.08),transparent 60%),
+             radial-gradient(900px 500px at 10% 110%,rgba(255,178,36,.07),transparent 60%),var(--bg)}
+.login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:var(--sp-6) var(--sp-5);box-shadow:var(--shadow)}
+.login-brand{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2)}
+.brand-hex{width:38px;height:38px;flex:none;color:var(--amber)}
+.login-brand h1{font-family:var(--mono);font-size:var(--fs-lg);letter-spacing:.02em}
+.login-sub{color:var(--muted);font-size:var(--fs-sm);margin-bottom:var(--sp-5)}
+.field{margin-bottom:var(--sp-4)}
+.field label{display:block;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-2);font-weight:550}
+.field .req{color:var(--amber)}
+.input{width:100%;min-height:46px;padding:10px 14px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-sm);transition:border-color var(--dur) var(--ease)}
+.input::placeholder{color:var(--faint)}
+.input:hover{border-color:#33405f}
+.input:focus{outline:none;border-color:var(--amber)}
+.input[aria-invalid="true"]{border-color:var(--red)}
+.pw-row{position:relative}
+.pw-row .input{padding-right:52px}
+.pw-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  min-width:44px;min-height:40px;display:grid;place-items:center;color:var(--muted);border-radius:6px}
+.pw-toggle:hover{color:var(--text)}
+.form-error{display:none;align-items:center;gap:6px;color:var(--red);font-size:var(--fs-sm);margin-top:var(--sp-2)}
+.form-error.show{display:flex}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;
+  padding:10px 20px;border-radius:var(--r-sm);font-weight:600;font-size:var(--fs-base);
+  transition:transform var(--dur) var(--ease),background var(--dur) var(--ease),opacity var(--dur);
+  border:1px solid transparent}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--amber);color:var(--on-accent);width:100%}
+.btn-primary:hover{background:#ffc14d}
+.btn-ghost{background:var(--surface-2);border-color:var(--line);color:var(--text);min-height:44px}
+.btn-ghost:hover{background:var(--surface-3)}
+.btn-danger{background:transparent;border-color:rgba(245,99,88,.4);color:var(--red)}
+.btn-danger:hover{background:rgba(245,99,88,.12)}
+.login-hint{margin-top:var(--sp-4);font-size:var(--fs-xs);color:var(--faint);font-family:var(--mono)}
+
+/* ============ APP SHELL ============ */
+.app{display:none}
+.app.on{display:grid;grid-template-columns:232px 1fr;min-height:100dvh}
+.sidebar{border-right:1px solid var(--line-soft);background:var(--surface);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2);
+  position:sticky;top:0;height:100dvh}
+.side-brand{display:flex;align-items:center;gap:10px;padding:6px 8px 18px}
+.side-brand .brand-hex{width:28px;height:28px}
+.side-brand b{font-family:var(--mono);font-size:var(--fs-sm);letter-spacing:.03em}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;min-height:44px;
+  border-radius:var(--r-sm);color:var(--muted);font-weight:550;font-size:var(--fs-sm);
+  transition:background var(--dur),color var(--dur);text-align:left;width:100%}
+.nav-item svg{width:19px;height:19px;flex:none}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--surface-3);color:var(--amber)}
+.side-foot{margin-top:auto;border-top:1px solid var(--line-soft);padding-top:var(--sp-3);
+  font-size:var(--fs-xs);color:var(--faint)}
+.main{padding:var(--sp-5) var(--sp-6) 96px;max-width:1180px;width:100%;margin:0 auto;min-width:0}
+
+/* status strip — signature */
+.status-strip{display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-5);align-items:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:12px 18px;margin-bottom:var(--sp-5);font-family:var(--mono);font-size:var(--fs-sm)}
+.st-item{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.st-item b{color:var(--text);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.dot.ok{background:var(--green);box-shadow:0 0 0 0 rgba(61,214,140,.5)}
+.dot.warn{background:var(--amber)}
+.dot.bad{background:var(--red)}
+.dot.idle{background:var(--faint)}
+@media (prefers-reduced-motion:no-preference){
+  .dot.ok{animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,214,140,.45)}70%{box-shadow:0 0 0 8px rgba(61,214,140,0)}100%{box-shadow:0 0 0 0 rgba(61,214,140,0)}}
+}
+.page-title{font-size:var(--fs-xl);margin-bottom:var(--sp-1)}
+.page-sub{color:var(--muted);font-size:var(--fs-sm);margin-bottom:var(--sp-5)}
+
+/* ============ CARDS / KPI ============ */
+.grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--sp-4);margin-bottom:var(--sp-5)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--sp-4)}
+.kpi-label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:var(--fs-xs);
+  text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:10px}
+.kpi-label svg{width:15px;height:15px}
+.kpi-value{font-family:var(--mono);font-size:var(--fs-2xl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-sub{color:var(--faint);font-size:var(--fs-xs);margin-top:8px;font-family:var(--mono)}
+.section-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:var(--sp-5) 0 var(--sp-3)}
+.section-h h2{font-size:var(--fs-lg)}
+.section-h .meta{color:var(--faint);font-size:var(--fs-xs);font-family:var(--mono)}
+
+/* pipeline — signature */
+.pipeline{display:flex;gap:0;overflow-x:auto;padding:var(--sp-2) 2px var(--sp-3);scrollbar-width:thin}
+.pl-node{flex:none;display:flex;align-items:center}
+.pl-btn{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:86px;min-height:44px;
+  padding:10px 8px;border-radius:var(--r-sm);transition:background var(--dur)}
+.pl-btn:hover{background:var(--surface-2)}
+.pl-circle{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  border:2px solid var(--line);background:var(--surface-2);font-family:var(--mono);
+  font-size:var(--fs-xs);font-weight:700;color:var(--muted);position:relative}
+.pl-node.done .pl-circle{background:var(--pc);border-color:var(--pc);color:var(--on-accent)}
+.pl-node.active .pl-circle{border-color:var(--pc);color:var(--pc)}
+@media (prefers-reduced-motion:no-preference){
+  .pl-node.active .pl-circle::after{content:"";position:absolute;inset:-6px;border-radius:50%;
+    border:2px solid var(--pc);opacity:.5;animation:ring 1.8s infinite}
+  @keyframes ring{0%{transform:scale(.85);opacity:.6}100%{transform:scale(1.25);opacity:0}}
+}
+.pl-name{font-size:var(--fs-xs);color:var(--muted);max-width:96px;text-align:center;line-height:1.3}
+.pl-node.active .pl-name{color:var(--text)}
+.pl-link{width:34px;height:2px;background:var(--line);flex:none;margin-top:-26px}
+.pl-node.done + .pl-node .pl-link,.pl-link.done{background:var(--green)}
+
+/* charts */
+.grid-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--sp-4)}
+.chart-card h3{font-size:var(--fs-sm);color:var(--muted);font-weight:600;margin-bottom:4px;
+  text-transform:uppercase;letter-spacing:.07em}
+.chart-note{font-size:var(--fs-xs);color:var(--faint);margin-bottom:var(--sp-3)}
+.chart-svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:var(--fs-xs);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.empty{border:1px dashed var(--line);border-radius:var(--r-sm);padding:var(--sp-5);
+  text-align:center;color:var(--faint);font-size:var(--fs-sm)}
+
+/* progress bars */
+.pbar{height:8px;background:var(--surface-3);border-radius:var(--r-full);overflow:hidden}
+.pbar>i{display:block;height:100%;border-radius:var(--r-full);background:var(--amber);
+  transition:width .45s var(--ease)}
+</style>
+<style>
+/* ============ ROADMAP TAB ============ */
+.phase{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  margin-bottom:var(--sp-3);overflow:hidden;border-left:3px solid var(--pc,var(--line))}
+.phase-head{display:flex;align-items:center;gap:14px;width:100%;padding:16px;min-height:64px;text-align:left}
+.phase-head:hover{background:var(--surface-2)}
+.ph-code{font-family:var(--mono);font-weight:700;font-size:var(--fs-sm);color:var(--pc);
+  background:color-mix(in srgb,var(--pc) 14%,transparent);border-radius:6px;padding:4px 8px;flex:none}
+.ph-title{flex:1;min-width:0}
+.ph-title b{display:block;font-size:var(--fs-base)}
+.ph-title small{color:var(--faint);font-family:var(--mono);font-size:var(--fs-xs)}
+.ph-pct{font-family:var(--mono);font-size:var(--fs-sm);color:var(--muted);flex:none;min-width:44px;text-align:right}
+.chev{width:18px;height:18px;color:var(--faint);transition:transform var(--dur) var(--ease);flex:none}
+.phase.open .chev{transform:rotate(180deg)}
+.phase .pbar{margin:0 16px}
+.phase-body{display:none;padding:var(--sp-4) 16px var(--sp-4)}
+.phase.open .phase-body{display:block}
+.ph-desc{color:var(--muted);font-size:var(--fs-sm);margin-bottom:var(--sp-4)}
+.task{display:flex;align-items:center;gap:12px;padding:10px 8px;min-height:48px;border-radius:var(--r-sm);
+  cursor:pointer;transition:background var(--dur)}
+.task:hover{background:var(--surface-2)}
+.task input{position:absolute;opacity:0;width:1px;height:1px}
+.cb{width:22px;height:22px;flex:none;border-radius:6px;border:2px solid var(--line);
+  display:grid;place-items:center;transition:all var(--dur) var(--ease);color:transparent}
+.task input:checked~.cb{background:var(--pc);border-color:var(--pc);color:var(--on-accent)}
+.task input:focus-visible~.cb,.ms-item input:focus-visible~.cb{outline:2px solid var(--amber);outline-offset:2px}
+.cb svg{width:13px;height:13px}
+.task-label{flex:1;font-size:var(--fs-sm)}
+.task input:checked~.task-label{color:var(--faint);text-decoration:line-through;text-decoration-color:var(--line)}
+.task-date{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none}
+.ph-result{margin-top:var(--sp-3);padding:12px 14px;background:var(--surface-2);border-radius:var(--r-sm);
+  font-size:var(--fs-sm);color:var(--muted);display:flex;gap:10px;align-items:flex-start}
+.ph-result svg{width:16px;height:16px;flex:none;color:var(--pc);margin-top:2px}
+.ph-result b{color:var(--text)}
+
+/* ============ JOURNAL TAB ============ */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--sp-3);align-items:end}
+.form-grid .full{grid-column:1/-1}
+select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2393A0B8' stroke-width='2'%3E%3Cpath d='M3 5l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+.sess-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line-soft)}
+.sess-row:last-child{border-bottom:none}
+.sess-date{font-family:var(--mono);font-size:var(--fs-xs);color:var(--muted);flex:none;width:82px}
+.sess-tag{font-family:var(--mono);font-size:11px;color:var(--pc);
+  background:color-mix(in srgb,var(--pc) 14%,transparent);padding:3px 7px;border-radius:5px;flex:none}
+.sess-min{font-family:var(--mono);font-size:var(--fs-sm);font-weight:600;flex:none;width:64px;text-align:right}
+.sess-note{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-sm);color:var(--faint);flex:none}
+.icon-btn:hover{background:var(--surface-2);color:var(--red)}
+.icon-btn svg{width:16px;height:16px}
+
+/* ============ MISSION TAB ============ */
+.mission-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
+.mission-grid .card h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);margin-bottom:var(--sp-3)}
+.mtable{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.mtable td{padding:9px 4px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.mtable td:first-child{color:var(--muted);width:42%}
+.mtable tr:last-child td{border-bottom:none}
+.badge{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:var(--r-full)}
+.badge.ok{background:rgba(61,214,140,.14);color:var(--green)}
+.badge.gap{background:rgba(245,99,88,.14);color:var(--red)}
+.badge.mid{background:rgba(255,178,36,.14);color:var(--amber)}
+.ms-item{display:flex;gap:12px;align-items:flex-start;padding:12px 8px;border-radius:var(--r-sm);cursor:pointer;min-height:48px}
+.ms-item:hover{background:var(--surface-2)}
+.mission-quote{border-left:3px solid var(--amber);padding:4px 0 4px 16px;color:var(--muted);
+  font-size:var(--fs-sm);margin-top:var(--sp-2)}
+.mission-quote b{color:var(--text)}
+
+/* ============ SETTINGS ============ */
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 4px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+.set-row:last-child{border-bottom:none}
+.set-row p{color:var(--muted);font-size:var(--fs-sm);max-width:52ch}
+.set-row b{display:block;color:var(--text);font-size:var(--fs-base);margin-bottom:2px}
+
+/* toast */
+.toast-zone{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:100;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--surface-3);border:1px solid var(--line);color:var(--text);
+  padding:11px 18px;border-radius:var(--r-sm);font-size:var(--fs-sm);box-shadow:var(--shadow);
+  display:flex;gap:9px;align-items:center}
+.toast svg{width:15px;height:15px;color:var(--green)}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:tin .25s var(--ease)}
+  @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+
+/* bottom nav (mobile) */
+.bottom-nav{display:none}
+@media (max-width:1023px){
+  .app.on{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .main{padding:var(--sp-4) var(--sp-4) 110px}
+  .bottom-nav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;
+    background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(12px);
+    border-top:1px solid var(--line);z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+  .bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 7px;
+    min-height:56px;color:var(--faint);font-size:10.5px;font-weight:550}
+  .bn-item svg{width:21px;height:21px}
+  .bn-item.active{color:var(--amber)}
+  .page-title{font-size:24px}
+  .kpi-value{font-size:30px}
+  .mission-grid{grid-template-columns:1fr}
+  .status-strip{gap:var(--sp-2) var(--sp-4);font-size:var(--fs-xs)}
+}
+@media (max-width:420px){
+  .grid-kpi{grid-template-columns:1fr 1fr}
+  .sess-note{display:none}
+}
+.tab{display:none}.tab.on{display:block}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+<!-- ======== SVG ICON SPRITE ======== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-hex" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l8 4.6v9.2L12 22l-8-4.6V6.6L12 2z"/><path d="M12 8v4l3 2" stroke-linecap="round"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="5" r="2.4"/><circle cx="18" cy="12" r="2.4"/><circle cx="8" cy="19" r="2.4"/><path d="M8.2 6.2L15.8 11M15.7 13.6l-5.6 3.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zm0 0a2 2 0 002 2h13" stroke-linejoin="round"/><path d="M9 7h6" stroke-linecap="round"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5L6.8 15M17.2 9l2.6-1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><path d="M4.5 12.5l5 5 10-11" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22c4.2 0 7-2.7 7-6.6 0-4.6-4.2-6.8-5.2-11.4-2.6 1.6-3.4 4.4-3.2 6.8-1-.5-1.9-1.5-2.3-2.8C6.6 9.6 5 11.7 5 15.4 5 19.3 7.8 22 12 22z" stroke-linejoin="round"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 21V4m0 1h13l-2.5 4L18 13H5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l16 16" stroke-linecap="round"/><path d="M9.9 5.9A9.4 9.4 0 0112 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 01-3.3 4M6.2 6.9C3.8 8.8 2.5 12 2.5 12S6 18.5 12 18.5c1.3 0 2.5-.3 3.6-.8"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3L2.5 20h19L12 3z" stroke-linejoin="round"/><path d="M12 9.5V14" stroke-linecap="round"/><circle cx="12" cy="17" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4.8A.8.8 0 019.8 4h4.4a.8.8 0 01.8.8V7m3 0l-.8 13.2a1 1 0 01-1 .8H8.6a1 1 0 01-1-.8L6.8 7" stroke-linecap="round"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21V9m0 0l-4.5 4.5M12 9l4.5 4.5M4 4h16" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4M10 8l-4 4 4 4M6 12h10" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></symbol>
+</svg>
+
+<!-- ======== LOGIN ======== -->
+<div class="login-wrap" id="loginView">
+  <form class="login-card" id="loginForm" novalidate>
+    <div class="login-brand">
+      <svg class="brand-hex" aria-hidden="true"><use href="#i-hex"/></svg>
+      <h1>MISSION CONTROL</h1>
+    </div>
+    <p class="login-sub">DevOps o'quv tracker · shaxsiy panel</p>
+    <div class="field">
+      <label for="inLogin">Login <span class="req" aria-hidden="true">*</span></label>
+      <input class="input" id="inLogin" name="login" autocomplete="username" placeholder="login" required>
+    </div>
+    <div class="field">
+      <label for="inPass">Parol <span class="req" aria-hidden="true">*</span></label>
+      <div class="pw-row">
+        <input class="input" id="inPass" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+        <button type="button" class="pw-toggle" id="pwToggle" aria-label="Parolni ko'rsatish" aria-pressed="false">
+          <svg width="19" height="19" aria-hidden="true"><use href="#i-eye" id="pwIcon"/></svg>
+        </button>
+      </div>
+      <p class="form-error" id="loginErr" role="alert">
+        <svg width="14" height="14" aria-hidden="true"><use href="#i-warn"/></svg>
+        <span>Login yoki parol noto'g'ri — qayta urinib ko'ring.</span>
+      </p>
+    </div>
+    <button class="btn btn-primary" type="submit">Kirish</button>
+    <p class="login-hint">// parol index.html ichida, CONFIG bo'limida</p>
+  </form>
+</div>
+
+<!-- ======== APP ======== -->
+<div class="app" id="app">
+  <nav class="sidebar" aria-label="Asosiy navigatsiya">
+    <div class="side-brand">
+      <svg class="brand-hex" aria-hidden="true"><use href="#i-hex"/></svg>
+      <b>MISSION CONTROL</b>
+    </div>
+    <button class="nav-item" data-tab="panel"><svg aria-hidden="true"><use href="#i-dash"/></svg>Panel</button>
+    <button class="nav-item" data-tab="roadmap"><svg aria-hidden="true"><use href="#i-map"/></svg>Yo'l xarita</button>
+    <button class="nav-item" data-tab="jurnal"><svg aria-hidden="true"><use href="#i-book"/></svg>Jurnal</button>
+    <button class="nav-item" data-tab="missiya"><svg aria-hidden="true"><use href="#i-target"/></svg>Missiya</button>
+    <button class="nav-item" data-tab="sozlash"><svg aria-hidden="true"><use href="#i-gear"/></svg>Sozlash</button>
+    <div class="side-foot mono">v1.0 · lokal ma'lumot<br>faqat shu brauzerda</div>
+  </nav>
+
+  <main class="main" id="main" tabindex="-1">
+    <div class="status-strip" id="statusStrip" aria-label="Tizim holati"></div>
+
+    <section class="tab" id="tab-panel" aria-labelledby="h-panel">
+      <h1 class="page-title" id="h-panel">Boshqaruv paneli</h1>
+      <p class="page-sub">O'quv tizimingizning jonli ko'rsatkichlari</p>
+      <div class="grid-kpi" id="kpiGrid"></div>
+      <div class="section-h"><h2>Deploy pipeline — fazalar</h2><span class="meta" id="plMeta"></span></div>
+      <div class="card"><div class="pipeline" id="pipeline"></div></div>
+      <div class="section-h"><h2>Tahlil</h2><span class="meta">so'nggi faollik asosida</span></div>
+      <div class="grid-charts" id="charts"></div>
+    </section>
+
+    <section class="tab" id="tab-roadmap" aria-labelledby="h-road">
+      <h1 class="page-title" id="h-road">Yo'l xarita</h1>
+      <p class="page-sub">9 faza · har biri portfolio ilovani bir pog'ona ko'taradi. Bajarilgan vazifani belgilang — sana avtomatik yoziladi.</p>
+      <div id="phaseList"></div>
+    </section>
+
+    <section class="tab" id="tab-jurnal" aria-labelledby="h-jur">
+      <h1 class="page-title" id="h-jur">O'quv jurnali</h1>
+      <p class="page-sub">Har mashg'ulotni yozing — streak, haftalik soatlar va prognoz shundan hisoblanadi.</p>
+      <div class="card" style="margin-bottom:24px">
+        <form class="form-grid" id="sessForm">
+          <div class="field" style="margin:0">
+            <label for="sDate">Sana <span class="req">*</span></label>
+            <input class="input" type="date" id="sDate" required>
+          </div>
+          <div class="field" style="margin:0">
+            <label for="sMin">Davomiylik (daqiqa) <span class="req">*</span></label>
+            <input class="input" type="number" id="sMin" min="5" max="720" step="5" placeholder="60" inputmode="numeric" required>
+          </div>
+          <div class="field" style="margin:0">
+            <label for="sPhase">Faza</label>
+            <select class="input" id="sPhase"></select>
+          </div>
+          <div class="field full" style="margin:0">
+            <label for="sNote">Izoh (nima o'rgandingiz?)</label>
+            <input class="input" id="sNote" maxlength="140" placeholder="masalan: TCP vs UDP farqini tushundim, curl bilan mashq">
+          </div>
+          <p class="form-error" id="sessErr" role="alert" style="grid-column:1/-1">
+            <svg width="14" height="14" aria-hidden="true"><use href="#i-warn"/></svg><span></span>
+          </p>
+          <button class="btn btn-primary" type="submit" style="width:auto">
+            <svg width="16" height="16" aria-hidden="true"><use href="#i-plus"/></svg>Sessiya qo'shish
+          </button>
+        </form>
+      </div>
+      <div class="section-h"><h2>Tarix</h2><span class="meta" id="sessMeta"></span></div>
+      <div class="card" id="sessList"></div>
+    </section>
+
+    <section class="tab" id="tab-missiya" aria-labelledby="h-mis"></section>
+
+    <section class="tab" id="tab-sozlash" aria-labelledby="h-set">
+      <h1 class="page-title" id="h-set">Sozlash</h1>
+      <p class="page-sub">Ma'lumotlar faqat shu brauzerning localStorage'ida saqlanadi — vaqti-vaqti bilan zaxira oling.</p>
+      <div class="card">
+        <div class="set-row">
+          <div><b>Zaxira nusxa (JSON)</b><p>Butun progress bitta faylga tushadi. Boshqa brauzer/kompyuterga ko'chirish uchun ham shu.</p></div>
+          <button class="btn btn-ghost" id="btnExport"><svg width="16" height="16" aria-hidden="true"><use href="#i-down"/></svg>Eksport</button>
+        </div>
+        <div class="set-row">
+          <div><b>Zaxiradan tiklash</b><p>Avval eksport qilingan JSON faylni yuklang. Hozirgi ma'lumot almashtiriladi.</p></div>
+          <div><input type="file" id="impFile" accept="application/json" class="sr-only"><button class="btn btn-ghost" id="btnImport"><svg width="16" height="16" aria-hidden="true"><use href="#i-up"/></svg>Import</button></div>
+        </div>
+        <div class="set-row">
+          <div><b>Parolni almashtirish</b><p>index.html faylini oching va tepadagi <span class="mono">CONFIG</span> bo'limida LOGIN/PAROL qiymatini o'zgartiring.</p></div>
+        </div>
+        <div class="set-row">
+          <div><b>Hammasini tozalash</b><p>Barcha belgilar, sessiyalar va sanalar o'chadi. Qaytarib bo'lmaydi.</p></div>
+          <button class="btn btn-danger" id="btnReset"><svg width="16" height="16" aria-hidden="true"><use href="#i-trash"/></svg>Reset</button>
+        </div>
+        <div class="set-row">
+          <div><b>Chiqish</b><p>Sessiya yopiladi, ma'lumotlar joyida qoladi.</p></div>
+          <button class="btn btn-ghost" id="btnLogout"><svg width="16" height="16" aria-hidden="true"><use href="#i-out"/></svg>Chiqish</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Pastki navigatsiya">
+    <button class="bn-item" data-tab="panel"><svg aria-hidden="true"><use href="#i-dash"/></svg>Panel</button>
+    <button class="bn-item" data-tab="roadmap"><svg aria-hidden="true"><use href="#i-map"/></svg>Xarita</button>
+    <button class="bn-item" data-tab="jurnal"><svg aria-hidden="true"><use href="#i-book"/></svg>Jurnal</button>
+    <button class="bn-item" data-tab="missiya"><svg aria-hidden="true"><use href="#i-target"/></svg>Missiya</button>
+    <button class="bn-item" data-tab="sozlash"><svg aria-hidden="true"><use href="#i-gear"/></svg>Sozlash</button>
+  </nav>
+</div>
+<div class="toast-zone" id="toastZone" aria-live="polite"></div>
+<script>
+/* ================= CONFIG — shu yerda o'zgartiring ================= */
+const CONFIG = { LOGIN: "admin", PAROL: "devops2026" };
+/* =================================================================== */
+
+const PLAN_WEEKS = 42; // reja: ~42 hafta (ROADMAP.md)
+const PLAN = [
+ {id:"f0",code:"F0",name:"Poydevor: tarmoq",weeks:"2–3 hafta",color:"var(--cyan)",
+  desc:"Sizning 1-bo'lim, qisqartirilgan: Linux o'tkazib yuborildi (bilasiz). Keyingi hamma narsa shu poydevorga tayanadi.",
+  tasks:["IP, port va protokollar (TCP/UDP/HTTP)","DNS va domenlar: so'rov sayohati","HTTPS/TLS asoslari","12-faktor ilova falsafasi","curl bilan qo'lda HTTP so'rov mashqi","dig bilan DNS izini kuzatish"],
+  result:"curl + dig bilan so'rov yo'lini o'z ko'zingiz bilan ko'rasiz"},
+ {id:"f1",code:"F1",name:"Tekin server + deploy",weeks:"5–6 hafta",color:"var(--green)",
+  desc:"\"VM ijarasi\"ning $0 versiyasi: Oracle Cloud Always Free (ARM) + lokal Multipass. Portfolio ilova internetga chiqadi.",
+  tasks:["Oracle Cloud Free server ochish (+ billing tekshiruv)","SSH kalitlar + hardening (UFW, fail2ban)","Nginx: statik sayt ko'tarish","Reverse proxy + Let's Encrypt TLS","Node.js ilovani systemd service qilish","PostgreSQL o'rnatish va ulash","pg_dump backup + cron + tiklash mashqi"],
+  result:"Internetda ishlab turgan, HTTPS'li, backup'lanadigan ilova"},
+ {id:"f2",code:"F2",name:"Docker: chuqurlashtirish",weeks:"4 hafta",color:"var(--blue)",
+  desc:"Asoslarni bilasiz — endi intervyu darajasi: qatlamlar, optimizatsiya, networking ichkarisi.",
+  tasks:["Qatlamlar (layers) va build cache","Multi-stage build — Node.js misolida","Image optimizatsiya: <150MB maqsad","Docker networking ichkarisi","Volumes va ma'lumot saqlash","GHCR'ga image push (tekin registry)","Compose: app + Postgres + Nginx"],
+  result:"Bitta buyruqda ko'tariladigan production stack"},
+ {id:"f3",code:"F3",name:"Kubernetes",weeks:"8–10 hafta",color:"var(--violet)",
+  desc:"Eng katta blok. Lokal klaster (k3d/kind) — tekin. Har tushuncha portfolio ilovada sinaladi.",
+  tasks:["k3d/kind bilan lokal klaster","Pod: konteyner yuritishning K8s usuli","Deployment: boshqaruv paneli","Service: xizmat ko'rsatish","Ingress: tashqi kirish","ConfigMap va Secret","Liveness/readiness health check'lar","HPA: gorizontal autoscaling","Helm chart yozish","K8s arxitekturasi: control plane, etcd, kubelet","Portfolio ilovani K8s'ga ko'chirish"],
+  result:"helm install bilan ko'tariladigan, o'zini davolaydigan ilova"},
+ {id:"f4",code:"F4",name:"AWS + Terraform",weeks:"6–8 hafta",color:"var(--amber)",
+  desc:"Free Tier chegarasida. Shu fazadan keyin lokal bozorga arizalar boshlanadi.",
+  tasks:["0-dars: billing alarm o'rnatish","IAM: user, role, policy","EC2: hisoblash quvvati","S3: cheksiz disk","RDS asoslari (free tier Postgres)","Lambda + API Gateway: serverless","Terraform asoslari","Terraform bilan butun muhitni kodlash"],
+  result:"terraform apply bilan ko'tariladigan AWS muhiti"},
+ {id:"f5",code:"F5",name:"CI/CD quvuri",weeks:"3–4 hafta",color:"var(--orange)",
+  desc:"Actions bilasiz — endi to'liq yetkazish quvuri: test → build → deploy.",
+  tasks:["Test bosqichi: Node testlarini Actions'da","Build → GHCR'ga image push","Deploy bosqichi: serverga/K8s'ga","Staging → production environments"],
+  result:"git push → 5 daqiqada production'da, qo'l tegmasdan"},
+ {id:"f6",code:"F6",name:"Kuzatuv (observability)",weeks:"4 hafta",color:"var(--pink)",
+  desc:"Grafana Cloud free tier + Prometheus. Dastur \"nima o'layotgani\"ni ko'rasiz.",
+  tasks:["Loglar: yig'ish va Loki","Prometheus + Node.js ilovaga metrika","Grafana dashboard qurish","Alerting → Telegram xabar"],
+  result:"Ilova yiqilsa 1 daqiqada Telegram'ga xabar keladi"},
+ {id:"f7",code:"F7",name:"Xavfsizlik",weeks:"3–4 hafta",color:"var(--red)",
+  desc:"Eshikni qulflaymiz: sirlar, tarmoq teshiklari, avtomatik skaner.",
+  tasks:["Secrets management spektri (env → Vault)","Firewall / security group'lar: teshiklarni yopish","Trivy skanerini CI'ga ulash","OWASP Top 10 — dasturchi ko'zi bilan"],
+  result:"Sirlar kodda emas, skaner har push'da ishlaydi"},
+ {id:"f8",code:"F8",name:"Portfolio + intervyu",weeks:"2–4 hafta",color:"var(--teal)",
+  desc:"Loyihani \"sotish\" va faol topshirish bosqichi.",
+  tasks:["README + arxitektura diagrammasi","Intervyu savollar bankini yechish","Rezyume + LinkedIn tayyorlash","Lokal bozorga faol arizalar","AWS SAA sertifikat qarori (byudjetga qarab)"],
+  result:"Intervyularga faol topshirilyapti"}
+];
+const MILESTONES=[
+ {id:"m1",label:"Portfolio ilova to'liq yo'lni bosib o'tdi: server → Docker → K8s → CI/CD → monitoring → security"},
+ {id:"m2",label:"Intervyu mavzularida erkin javob: Linux, tarmoq, Docker, K8s, AWS, CI/CD"},
+ {id:"m3",label:"(Ixtiyoriy) AWS SAA sertifikati olindi"}
+];
+const PROFILE=[["Stack","JavaScript / TypeScript","ok","✓ bor"],["Linux server (SSH, systemd)","Bilasiz","ok","✓ bor"],["Docker (Dockerfile + compose)","Bilasiz","ok","✓ bor"],["GitHub Actions","Bilasiz","ok","✓ bor"],["Kubernetes","O'rganish yadrosi","gap","yadro"],["AWS / cloud","O'rganish yadrosi","gap","yadro"],["Monitoring","O'rganiladi","gap","yadro"],["Tarmoq nazariyasi","Bo'shliq","mid","bo'shliq"]];
+
+/* ================= STORAGE ================= */
+const K="devopsTrackV1", KA="devopsTrackAuth";
+const blank=()=>({t:{},s:[],ms:{},start:null});
+let hasLS=true, mem=null;
+try{localStorage.setItem("__t","1");localStorage.removeItem("__t")}catch(e){hasLS=false;mem=blank()}
+function load(){ if(!hasLS)return mem; try{const r=localStorage.getItem(K);return r?Object.assign(blank(),JSON.parse(r)):blank()}catch(e){return blank()} }
+function save(d){ if(!hasLS){mem=d;return} try{localStorage.setItem(K,JSON.stringify(d))}catch(e){toast("Saqlashda xato — joy yetmayapti?",true)} }
+let DB=load();
+function markStart(){ if(!DB.start){DB.start=todayISO()} }
+
+/* ================= HELPERS ================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const pad=n=>String(n).padStart(2,"0");
+const toISO=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const todayISO=()=>toISO(new Date());
+const fromISO=s=>{const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c)};
+const fmtD=s=>{const d=fromISO(s);return pad(d.getDate())+"."+pad(d.getMonth()+1)};
+const fmtDY=s=>{const d=fromISO(s);return pad(d.getDate())+"."+pad(d.getMonth()+1)+"."+d.getFullYear()};
+const dayDiff=(a,b)=>Math.round((fromISO(b)-fromISO(a))/864e5);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const totalTasks=PLAN.reduce((n,p)=>n+p.tasks.length,0);
+const doneTasks=()=>Object.keys(DB.t).length;
+const pct=()=>totalTasks?Math.round(doneTasks()/totalTasks*100):0;
+const phasePct=p=>Math.round(p.tasks.filter((_,i)=>DB.t[p.id+"t"+i]).length/p.tasks.length*100);
+function activeDates(){ const set=new Set(DB.s.map(x=>x.d)); Object.values(DB.t).forEach(ts=>set.add(ts.slice(0,10))); return set; }
+function streak(){ const set=activeDates(); if(!set.size)return 0; let d=new Date(); if(!set.has(toISO(d)))d.setDate(d.getDate()-1); let n=0; while(set.has(toISO(d))){n++;d.setDate(d.getDate()-1)} return n; }
+function totalMin(){ return DB.s.reduce((n,x)=>n+x.m,0) }
+function toast(msg,warn){ const z=$("#toastZone"); const t=document.createElement("div"); t.className="toast";
+  t.innerHTML=`<svg style="${warn?"color:var(--amber)":""}" aria-hidden="true"><use href="#i-${warn?"warn":"check"}"/></svg>${esc(msg)}`;
+  z.appendChild(t); setTimeout(()=>t.remove(),3600); }
+/* ================= AUTH ================= */
+function authed(){ try{return (hasLS?localStorage.getItem(KA):mem&&mem.__a)==="1"}catch(e){return false} }
+function setAuth(v){ try{ if(hasLS){v?localStorage.setItem(KA,"1"):localStorage.removeItem(KA)} else if(mem){mem.__a=v?"1":""} }catch(e){} }
+$("#loginForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const l=$("#inLogin"), p=$("#inPass"), err=$("#loginErr");
+  const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="Tekshirilmoqda…";
+  setTimeout(()=>{
+    if(l.value.trim()===CONFIG.LOGIN && p.value===CONFIG.PAROL){
+      setAuth(true); err.classList.remove("show"); l.removeAttribute("aria-invalid"); p.removeAttribute("aria-invalid");
+      enter(); toast("Xush kelibsiz — tizim ishga tushdi");
+    }else{
+      err.classList.add("show"); l.setAttribute("aria-invalid","true"); p.setAttribute("aria-invalid","true"); p.focus(); p.select();
+    }
+    btn.disabled=false; btn.textContent="Kirish";
+  },350);
+});
+$("#pwToggle").addEventListener("click",()=>{
+  const p=$("#inPass"), on=p.type==="password";
+  p.type=on?"text":"password";
+  $("#pwToggle").setAttribute("aria-pressed",on);
+  $("#pwToggle").setAttribute("aria-label",on?"Parolni yashirish":"Parolni ko'rsatish");
+  $("#pwIcon").setAttribute("href",on?"#i-eyeoff":"#i-eye");
+});
+function enter(){ $("#loginView").style.display="none"; $("#app").classList.add("on"); go(location.hash.slice(1)||"panel"); }
+function logout(){ setAuth(false); location.hash=""; location.reload(); }
+
+/* ================= NAV ================= */
+function go(tab){
+  if(!document.getElementById("tab-"+tab)) tab="panel";
+  $$(".tab").forEach(t=>t.classList.toggle("on",t.id==="tab-"+tab));
+  $$("[data-tab]").forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle("active",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+  if(location.hash!=="#"+tab){try{history.replaceState(null,"","#"+tab)}catch(e){location.hash=tab}}
+  renderAll();
+  $("#main").focus?.({preventScroll:true});
+}
+$$("[data-tab]").forEach(b=>b.addEventListener("click",()=>{go(b.dataset.tab);window.scrollTo({top:0})}));
+window.addEventListener("hashchange",()=>authed()&&go(location.hash.slice(1)));
+
+/* ================= STATUS STRIP ================= */
+function planStats(){
+  const start=DB.start, days=start?dayDiff(start,todayISO()):0;
+  const expected=start?Math.min(100,Math.round(days/(PLAN_WEEKS*7)*100)):0;
+  const actual=pct(), gap=expected-actual;
+  let cls="idle",label="KUTMOQDA";
+  if(start){ if(actual>=100){cls="ok";label="TUGALLANDI"} else if(gap<=5){cls="ok";label="ON TRACK"} else if(gap<=15){cls="warn";label="BIROZ ORTDA"} else {cls="bad";label="ORTDA"} }
+  let proj="—";
+  if(start&&doneTasks()>0&&actual<100){ const v=doneTasks()/Math.max(1,days); const rem=Math.ceil((totalTasks-doneTasks())/v); const d=fromISO(todayISO()); d.setDate(d.getDate()+rem); proj=fmtDY(toISO(d)); }
+  else if(actual>=100) proj="✓";
+  return {expected,actual,gap,cls,label,proj,days,start};
+}
+function renderStrip(){
+  const s=planStats(), st=streak(), h=(totalMin()/60).toFixed(1);
+  $("#statusStrip").innerHTML=`
+   <span class="st-item"><span class="dot ${s.cls}"></span>HOLAT: <b>${s.label}</b></span>
+   <span class="st-item">UPTIME <b class="num">${st} kun</b></span>
+   <span class="st-item">DEPLOY <b class="num">${s.actual}%</b><span style="color:var(--faint)">/ reja ${s.expected}%</span></span>
+   <span class="st-item">JAMI <b class="num">${h} soat</b></span>`;
+}
+
+/* ================= KPI + PIPELINE ================= */
+function kpi(icon,label,value,sub){return `<div class="card"><div class="kpi-label"><svg aria-hidden="true"><use href="#i-${icon}"/></svg>${label}</div><div class="kpi-value">${value}</div><div class="kpi-sub">${sub}</div></div>`}
+function renderKPIs(){
+  const s=planStats(), wk=weekAgg(1)[0];
+  $("#kpiGrid").innerHTML=
+   kpi("target","Umumiy progress",s.actual+"%",doneTasks()+" / "+totalTasks+" vazifa")+
+   kpi("flame","Streak",streak(),"ketma-ket faol kunlar")+
+   kpi("clock","Shu hafta",(wk.min/60).toFixed(1)+"h","maqsad: 5–9 soat")+
+   kpi("flag","Prognoz tugash",`<span style="font-size:22px">${s.proj}</span>`,s.start?"boshlangan: "+fmtDY(s.start):"birinchi faollikni kuting");
+}
+function renderPipeline(){
+  let done=0;
+  const html=PLAN.map((p,i)=>{
+    const pp=phasePct(p), st=pp===100?"done":(pp>0?"active":(i===0||phasePct(PLAN[i-1])===100)?"active":"");
+    if(pp===100)done++;
+    const stFinal=pp===100?"done":(pp>0?"active":st==="active"?"active":"");
+    return `<div class="pl-node ${stFinal}" style="--pc:${p.color}">
+      ${i?`<span class="pl-link ${phasePct(PLAN[i-1])===100?"done":""}"></span>`:""}
+      <button class="pl-btn" data-goph="${p.id}" aria-label="${p.code} ${esc(p.name)} — ${pp}%">
+        <span class="pl-circle">${pp===100?'<svg width="16" height="16" aria-hidden="true"><use href="#i-check"/></svg>':p.code}</span>
+        <span class="pl-name">${esc(p.name)}</span>
+      </button></div>`;
+  }).join("");
+  $("#pipeline").innerHTML=html;
+  $("#plMeta").textContent=done+" / "+PLAN.length+" faza yopildi";
+  $$("[data-goph]").forEach(b=>b.addEventListener("click",()=>{go("roadmap");openPhase=b.dataset.goph;renderRoadmap();document.getElementById("ph-"+openPhase)?.scrollIntoView({behavior:"smooth",block:"start"})}));
+}
+
+/* ================= CHARTS (pure SVG) ================= */
+function weekAgg(n){ // last n weeks [{label,min}] newest first
+  const out=[]; const now=new Date(); const day=(now.getDay()+6)%7; const mon=new Date(now); mon.setDate(now.getDate()-day);
+  for(let i=0;i<n;i++){ const a=new Date(mon); a.setDate(mon.getDate()-7*i); const b=new Date(a); b.setDate(a.getDate()+6);
+    const A=toISO(a),B=toISO(b);
+    const min=DB.s.filter(x=>x.d>=A&&x.d<=B).reduce((s,x)=>s+x.m,0);
+    out.push({label:fmtD(A),min}); }
+  return out;
+}
+function chartWeekly(){
+  const data=weekAgg(10).reverse(); const max=Math.max(9*60,...data.map(d=>d.min));
+  if(!data.some(d=>d.min)) return `<div class="empty">Hali sessiya yo'q — Jurnal'da birinchi mashg'ulotni yozing, ustunlar shu yerda o'sadi.</div>`;
+  const W=560,H=210,P=34,bw=(W-P-10)/data.length;
+  const y=v=>H-24-(v/max)*(H-52);
+  const goal=y(7*60);
+  let s="";
+  [0,.5,1].forEach(f=>{const v=max*f;s+=`<line x1="${P}" x2="${W-4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-soft)"/><text x="${P-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--faint)" font-family="var(--mono)">${(v/60).toFixed(0)}h</text>`});
+  s+=`<line x1="${P}" x2="${W-4}" y1="${goal}" y2="${goal}" stroke="var(--amber)" stroke-dasharray="4 4" opacity=".7"/>`;
+  data.forEach((d,i)=>{const x=P+8+i*bw,h=(H-24)-y(d.min);
+    s+=`<rect x="${x}" y="${y(d.min)}" width="${bw-12}" height="${Math.max(h,0)}" rx="4" fill="var(--cyan)" opacity="${d.min?1:.18}"><title>${d.label} haftasi: ${(d.min/60).toFixed(1)} soat</title></rect>`;
+    if(d.min)s+=`<text x="${x+(bw-12)/2}" y="${y(d.min)-6}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="var(--mono)">${(d.min/60).toFixed(1)}</text>`;
+    s+=`<text x="${x+(bw-12)/2}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--faint)" font-family="var(--mono)">${d.label}</text>`;});
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="So'nggi 10 haftadagi o'quv soatlari ustun diagrammasi">${s}</svg>
+  <div class="legend"><span><span class="sw" style="background:var(--cyan)"></span>haftalik soat</span><span><span class="sw" style="background:var(--amber)"></span>7h maqsad chizig'i</span></div>`;
+}
+function chartBurnup(){
+  const s=planStats();
+  if(!s.start) return `<div class="empty">Birinchi vazifa belgilanishi bilan sana-oqim (burn-up) chizig'i shu yerda boshlanadi.</div>`;
+  const W=560,H=210,P=34,end=PLAN_WEEKS*7;
+  const x=d=>P+8+Math.min(1,d/end)*(W-P-20), y=v=>H-24-(v/100)*(H-52);
+  // actual cumulative by date
+  const ev=Object.values(DB.t).map(t=>t.slice(0,10)).sort();
+  let acc=0, pts=[[0,0]];
+  ev.forEach(d=>{acc++; pts.push([Math.max(0,dayDiff(s.start,d)),acc/totalTasks*100])});
+  pts.push([s.days,pct()]);
+  const line=pts.map((p,i)=>(i?"L":"M")+x(p[0]).toFixed(1)+" "+y(p[1]).toFixed(1)).join(" ");
+  let g="";
+  [0,25,50,75,100].forEach(v=>{g+=`<line x1="${P}" x2="${W-4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-soft)"/><text x="${P-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--faint)" font-family="var(--mono)">${v}%</text>`});
+  g+=`<line x1="${x(0)}" y1="${y(0)}" x2="${x(end)}" y2="${y(100)}" stroke="var(--faint)" stroke-dasharray="5 5"/>`;
+  g+=`<path d="${line} L ${x(s.days)} ${y(0)} Z" fill="var(--green)" opacity=".1"/><path d="${line}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  g+=`<line x1="${x(s.days)}" x2="${x(s.days)}" y1="${y(0)}" y2="${y(100)}" stroke="var(--amber)" opacity=".6"/><text x="${x(s.days)}" y="${y(100)-6}" text-anchor="middle" font-size="10" fill="var(--amber)" font-family="var(--mono)">bugun</text>`;
+  [0,10,20,30,42].forEach(w=>{g+=`<text x="${x(w*7)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--faint)" font-family="var(--mono)">${w}-hafta</text>`});
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Reja va amaldagi progressni taqqoslovchi burn-up grafigi">${g}</svg>
+  <div class="legend"><span><span class="sw" style="background:var(--green)"></span>Amalda (${pct()}%)</span><span><span class="sw" style="background:var(--faint)"></span>Reja chizig'i — ${PLAN_WEEKS} hafta</span></div>`;
+}
+function chartPhases(){
+  const W=560,rowH=30,P=118,H=PLAN.length*rowH+14;
+  let g="";
+  PLAN.forEach((p,i)=>{const yy=10+i*rowH,pp=phasePct(p),bw=(W-P-56)*(pp/100);
+    g+=`<text x="${P-10}" y="${yy+15}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">${p.code} ${esc(p.name.slice(0,15))}</text>
+    <rect x="${P}" y="${yy+4}" width="${W-P-56}" height="14" rx="7" fill="var(--surface-3)"/>
+    <rect x="${P}" y="${yy+4}" width="${Math.max(bw,pp?8:0)}" height="14" rx="7" fill="${p.color}"><title>${p.code}: ${pp}%</title></rect>
+    <text x="${W-8}" y="${yy+15}" text-anchor="end" font-size="11" fill="var(--text)" font-family="var(--mono)">${pp}%</text>`;});
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Har bir faza bo'yicha foizli progress">${g}</svg>`;
+}
+function chartDonut(){
+  const p=pct(),R=64,C=2*Math.PI*R,off=C*(1-p/100);
+  return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+  <svg width="170" height="170" viewBox="0 0 170 170" role="img" aria-label="Umumiy progress: ${p} foiz">
+   <circle cx="85" cy="85" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="16"/>
+   <circle cx="85" cy="85" r="${R}" fill="none" stroke="var(--amber)" stroke-width="16" stroke-linecap="round"
+     stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 85 85)"/>
+   <text x="85" y="80" text-anchor="middle" font-size="34" font-weight="700" fill="var(--text)" font-family="var(--mono)">${p}%</text>
+   <text x="85" y="102" text-anchor="middle" font-size="11" fill="var(--muted)">bajarildi</text></svg>
+  <div style="font-size:var(--fs-sm);color:var(--muted);line-height:2">
+    <div><b class="num" style="color:var(--text)">${doneTasks()}</b> vazifa yopildi</div>
+    <div><b class="num" style="color:var(--text)">${totalTasks-doneTasks()}</b> vazifa qoldi</div>
+    <div><b class="num" style="color:var(--text)">${PLAN.filter(p=>phasePct(p)===100).length}/9</b> faza tugadi</div>
+  </div></div>`;
+}
+function renderCharts(){
+  $("#charts").innerHTML=`
+   <div class="card chart-card"><h3>Haftalik soatlar</h3><p class="chart-note">jurnal sessiyalaridan · amber chiziq = 7h/hafta maqsad</p>${chartWeekly()}</div>
+   <div class="card chart-card"><h3>Sana oqimi — reja vs amalda</h3><p class="chart-note">burn-up: punktir = ${PLAN_WEEKS} haftalik ideal sur'at</p>${chartBurnup()}</div>
+   <div class="card chart-card"><h3>Fazalar kesimi</h3><p class="chart-note">har faza necha foiz yopilgan</p>${chartPhases()}</div>
+   <div class="card chart-card"><h3>Umumiy holat</h3><p class="chart-note">butun roadmap bo'yicha</p>${chartDonut()}</div>`;
+}
+/* ================= ROADMAP TAB ================= */
+let openPhase=null;
+function renderRoadmap(){
+  const host=$("#phaseList"); if(!host)return;
+  host.innerHTML=PLAN.map(p=>{
+    const pp=phasePct(p);
+    const rows=p.tasks.map((t,i)=>{
+      const id=p.id+"t"+i, ts=DB.t[id];
+      return `<label class="task" style="position:relative">
+        <input type="checkbox" data-task="${id}" ${ts?"checked":""}>
+        <span class="cb"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
+        <span class="task-label">${esc(t)}</span>
+        ${ts?`<span class="task-date">${fmtD(ts.slice(0,10))}</span>`:""}
+      </label>`;}).join("");
+    return `<article class="phase ${openPhase===p.id?"open":""}" style="--pc:${p.color}" id="ph-${p.id}">
+      <button class="phase-head" data-ph="${p.id}" aria-expanded="${openPhase===p.id}">
+        <span class="ph-code">${p.code}</span>
+        <span class="ph-title"><b>${esc(p.name)}</b><small>${p.weeks} · ${p.tasks.length} vazifa</small></span>
+        <span class="ph-pct num">${pp}%</span>
+        <svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </button>
+      <div class="pbar" aria-hidden="true"><i style="width:${pp}%;background:${p.color}"></i></div>
+      <div class="phase-body">
+        <p class="ph-desc">${esc(p.desc)}</p>
+        ${rows}
+        <div class="ph-result"><svg aria-hidden="true"><use href="#i-flag"/></svg><span><b>Natija:</b> ${esc(p.result)}</span></div>
+      </div></article>`;
+  }).join("");
+  $$("[data-ph]").forEach(b=>b.addEventListener("click",()=>{openPhase=openPhase===b.dataset.ph?null:b.dataset.ph;renderRoadmap()}));
+  $$("[data-task]").forEach(cb=>cb.addEventListener("change",()=>{
+    const id=cb.dataset.task;
+    if(cb.checked){DB.t[id]=new Date().toISOString();markStart();toast("Vazifa yopildi ✓")}
+    else delete DB.t[id];
+    save(DB); renderAll();
+  }));
+}
+
+/* ================= JOURNAL TAB ================= */
+function initJournal(){
+  $("#sDate").value=todayISO(); $("#sDate").max=todayISO();
+  $("#sPhase").innerHTML=PLAN.map(p=>`<option value="${p.id}">${p.code} — ${esc(p.name)}</option>`).join("");
+  $("#sessForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    const d=$("#sDate").value, m=parseInt($("#sMin").value,10), err=$("#sessErr");
+    const bad=(msg,el)=>{err.classList.add("show");err.querySelector("span").textContent=msg;el.setAttribute("aria-invalid","true");el.focus()};
+    $("#sDate").removeAttribute("aria-invalid");$("#sMin").removeAttribute("aria-invalid");err.classList.remove("show");
+    if(!d||d>todayISO())return bad("Sana bo'sh yoki kelajakda — bugungi yoki o'tgan sanani tanlang.",$("#sDate"));
+    if(!m||m<5||m>720)return bad("Davomiylik 5–720 daqiqa oralig'ida bo'lsin.",$("#sMin"));
+    DB.s.unshift({i:Date.now(),d,m,p:$("#sPhase").value,n:$("#sNote").value.trim()});
+    markStart(); save(DB);
+    $("#sMin").value="";$("#sNote").value="";
+    toast("Sessiya yozildi — streak yangilandi"); renderAll();
+  });
+}
+function renderSessions(){
+  const host=$("#sessList"); if(!host)return;
+  const wk=weekAgg(1)[0];
+  $("#sessMeta").textContent=DB.s.length+" ta sessiya · shu hafta "+(wk.min/60).toFixed(1)+"h";
+  if(!DB.s.length){host.innerHTML=`<div class="empty">Jurnal bo'sh. Har mashg'ulotdan keyin 30 soniya ajratib yozib qo'ying — grafiklar shundan oziqlanadi.</div>`;return}
+  host.innerHTML=DB.s.slice(0,60).map(x=>{
+    const ph=PLAN.find(p=>p.id===x.p)||PLAN[0];
+    return `<div class="sess-row" style="--pc:${ph.color}">
+      <span class="sess-date">${fmtDY(x.d).slice(0,5)}<br><span style="color:var(--faint)">${x.d.slice(0,4)}</span></span>
+      <span class="sess-tag">${ph.code}</span>
+      <span class="sess-note">${esc(x.n||"—")}</span>
+      <span class="sess-min num">${x.m} daq</span>
+      <button class="icon-btn" data-del="${x.i}" aria-label="Sessiyani o'chirish"><svg aria-hidden="true"><use href="#i-trash"/></svg></button>
+    </div>`;}).join("")+(DB.s.length>60?`<p style="padding:12px 4px;color:var(--faint);font-size:12px">…yana ${DB.s.length-60} ta (eksportda to'liq)</p>`:"");
+  $$("[data-del]").forEach(b=>b.addEventListener("click",()=>{
+    if(!confirm("Bu sessiyani o'chirasizmi?"))return;
+    DB.s=DB.s.filter(x=>x.i!=b.dataset.del); save(DB); toast("Sessiya o'chirildi"); renderAll();
+  }));
+}
+
+/* ================= MISSION TAB ================= */
+function renderMission(){
+  const host=$("#tab-missiya"); if(!host)return;
+  const s=planStats();
+  host.innerHTML=`
+   <h1 class="page-title" id="h-mis">Missiya</h1>
+   <p class="page-sub">Har dars shu hujjatga bog'lanadi — MISSION.md (2026-07-15)</p>
+   <div class="card" style="margin-bottom:16px">
+     <h3 style="font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">Maqsad</h3>
+     <p style="font-size:17px;line-height:1.6">~9 oy ichida (<b>2027 bahorigacha</b>) O'zbekiston lokal bozorida <b style="color:var(--amber)">DevOps muhandis</b> sifatida ishga kirish. 1–2 yil tajribadan keyin xalqaro remote bozorga chiqish.</p>
+     <p class="mission-quote">Strategiya: <b>F4 (AWS) tugagach</b> — taxminan 5–6-oyda — roadmap tugashini kutmasdan lokal bozorga arizalar boshlanadi.</p>
+   </div>
+   <div class="mission-grid">
+     <div class="card"><h3>Muvaffaqiyat mezonlari</h3>
+       ${MILESTONES.map(m=>`<label class="ms-item"><input type="checkbox" class="sr-only" data-ms="${m.id}" ${DB.ms[m.id]?"checked":""}><span class="cb" style="--pc:var(--green);margin-top:2px">${DB.ms[m.id]?'<svg aria-hidden="true"><use href="#i-check"/></svg>':""}</span><span style="font-size:var(--fs-sm);${DB.ms[m.id]?"color:var(--faint)":""}">${esc(m.label)}</span></label>`).join("")}
+     </div>
+     <div class="card"><h3>Profil xaritasi</h3>
+       <table class="mtable">${PROFILE.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])} <span class="badge ${r[2]}">${r[3]}</span></td></tr>`).join("")}</table>
+     </div>
+     <div class="card"><h3>Cheklovlar</h3>
+       <table class="mtable">
+        <tr><td>Vaqt</td><td>haftasiga 5–9 soat (kuniga ~1 soat)</td></tr>
+        <tr><td>Byudjet</td><td>$0 — Oracle Always Free, AWS Free Tier, lokal VM. Billing alarm — birinchi qoida</td></tr>
+        <tr><td>Til</td><td>darslar o'zbekcha; manbalar inglizcha (qisqalari) + ruscha muqobillar</td></tr>
+        <tr><td>Reja muddati</td><td class="num">${PLAN_WEEKS} hafta · boshlangan: ${s.start?fmtDY(s.start):"hali yo'q"}</td></tr>
+       </table>
+     </div>
+     <div class="card"><h3>Portfolio ilova — o'zak g'oya</h3>
+       <p style="font-size:var(--fs-sm);color:var(--muted);line-height:1.7">Bitta <b style="color:var(--text)">Node.js/TS ilova</b> F0'dan F8'gacha siz bilan sayohat qiladi: bare server → Docker → K8s → CI/CD → monitoring → security. Intervyudagi asosiy hikoyangiz shu bo'ladi.</p>
+     </div>
+   </div>`;
+  $$("[data-ms]").forEach(cb=>cb.addEventListener("change",()=>{
+    if(cb.checked){DB.ms[cb.dataset.ms]=new Date().toISOString();toast("Mezon belgilandi — katta qadam!")} else delete DB.ms[cb.dataset.ms];
+    save(DB); renderMission();
+  }));
+}
+
+/* ================= SETTINGS ================= */
+$("#btnExport").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify({v:1,exported:new Date().toISOString(),data:DB},null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="devops-tracker-backup-"+todayISO()+".json"; a.click(); URL.revokeObjectURL(a.href);
+  toast("Zaxira yuklab olindi");
+});
+$("#btnImport").addEventListener("click",()=>$("#impFile").click());
+$("#impFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      const j=JSON.parse(r.result), d=j.data||j;
+      if(typeof d.t!=="object"||!Array.isArray(d.s)) throw 0;
+      if(!confirm("Hozirgi ma'lumot import qilingani bilan ALMASHTIRILADI. Davom etamizmi?")) return;
+      DB=Object.assign(blank(),d); save(DB); renderAll(); toast("Zaxiradan tiklandi");
+    }catch(err){toast("Fayl noto'g'ri formatda — eksport qilingan JSON'ni tanlang",true)} };
+  r.readAsText(f); e.target.value="";
+});
+$("#btnReset").addEventListener("click",()=>{
+  if(!confirm("DIQQAT: barcha progress, sessiyalar va sanalar o'chadi. Qaytarib bo'lmaydi.\n\nAvval eksport qilganmisiz?"))return;
+  if(!confirm("Oxirgi tasdiq: hammasi tozalansinmi?"))return;
+  DB=blank(); save(DB); openPhase=null; renderAll(); toast("Hammasi tozalandi — yangi start",true);
+});
+$("#btnLogout").addEventListener("click",logout);
+
+/* ================= BOOT ================= */
+function renderAll(){ renderStrip(); renderKPIs(); renderPipeline(); renderCharts(); renderRoadmap(); renderSessions(); renderMission(); }
+initJournal();
+if(!hasLS) toast("Diqqat: bu muhitda localStorage yopiq — ma'lumot faqat sahifa yopilguncha turadi. Faylni yuklab olib, brauzerda oching.",true);
+if(authed()) enter(); else $("#inLogin").focus();
+</script>
+</body>
+</html>
